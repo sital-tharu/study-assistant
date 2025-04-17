@@ -4,17 +4,20 @@ from typing import Optional
 from langchain_community.llms import Ollama
 from langchain.prompts import PromptTemplate
 from langchain.schema.runnable import RunnableSequence
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def initialize_llm(timeout: int = 120) -> Optional[Ollama]:
+def initialize_llm(timeout: int = 60) -> Optional[Ollama]:
     """Initialize the Ollama LLM with error handling"""
     try:
         logger.info("Initializing Ollama with llama2 model...")
-        llm = Ollama(model="llama2", timeout=timeout)
-
-        llm.invoke("test")
+        llm = Ollama(
+            model="llama2",
+            timeout=timeout,
+            callbacks=[StreamingStdOutCallbackHandler()]
+        )
         logger.info("Ollama connection successful")
         return llm
     except Exception as e:
@@ -34,14 +37,10 @@ def validate_input(topic: str) -> bool:
 def create_study_guide(topic: str, llm: Ollama) -> Optional[str]:
     """Create a study guide with error handling"""
     try:
+        # Simplified prompt for faster generation
         prompt = PromptTemplate(
             input_variables=["topic"],
-            template="""Create a concise study guide about {topic}. Include:
-            1. Key concepts
-            2. Important points
-            3. Simple examples
-            
-            Keep it brief and clear."""
+            template="""Briefly explain {topic} in 3-5 key points with examples."""
         )
         
         chain = prompt | llm
@@ -65,8 +64,11 @@ def main():
     if not llm:
         return
     
+    print("\nWelcome to the Study Assistant!")
+    print("Type 'quit' to exit at any time.")
+    
     while True:
-        topic = input("\nEnter the topic you want to study (or 'quit' to exit): ").strip()
+        topic = input("\nEnter the topic you want to study: ").strip()
         
         if topic.lower() == 'quit':
             print("\nGoodbye!")
@@ -75,6 +77,7 @@ def main():
         if not validate_input(topic):
             continue
             
+        print("\nGenerating study guide...")
         study_guide = create_study_guide(topic, llm)
         if study_guide:
             print("\nStudy Guide:")
